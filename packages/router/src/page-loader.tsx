@@ -202,7 +202,7 @@ const RouteAnnouncer = () => {
     announcementRef.current.innerText = announcement
   })
 
-  return (
+  return firstRender ? null : (
     <div
       style={{
         position: `absolute`,
