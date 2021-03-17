@@ -79,10 +79,65 @@ export class PageLoader extends React.Component<Props> {
     this.startPageLoadTransition(this.props)
   }
 
-  componentDidUpdate(prevProps: Props) {
+  announcementRef = React.createRef<HTMLDivElement>()
+
+  componentDidUpdate(prevProps: Props, prevState: State) {
     if (this.propsChanged(prevProps, this.props)) {
       this.clearLoadingTimeout()
       this.startPageLoadTransition(this.props)
+    }
+
+    if (this.stateChanged(prevState, this.state)) {
+      // scroll
+      //------------------------
+      // scrolls back to the top on `pushState` navigation
+
+      global?.scrollTo(0, 0)
+
+      // announce
+      //------------------------
+      // the order of priority is:
+      // 1. RouteAnnouncement
+      // 2. h1
+      // 3. document.title
+      // 4. location.pathname
+
+      let announcement
+
+      // do we need to watch out for `document` as well? (b/c prerender)
+      const routeAnnouncements = global?.document.querySelectorAll(
+        '[data-redwood-route-announcement]'
+      )
+      const pageHeading = global?.document.querySelector(`h1`)
+
+      if (routeAnnouncements.length) {
+        // @ts-ignore
+        announcement =
+          routeAnnouncements[routeAnnouncements.length - 1].innerText
+      } else if (pageHeading) {
+        announcement = pageHeading.innerText
+      } else if (global?.document.title) {
+        announcement = document.title
+      } else {
+        announcement = `new page at ${global?.location.pathname}`
+      }
+
+      // @ts-ignore
+      this.announcementRef.current.innerText = announcement
+
+      // focus
+      //------------------------
+      // a lot still to do here
+      // 1. check if we've navigated straight to this page (if so, focus shouldn't be managed, per se)
+      // 2. automatically insert skip links (we'll have this configurable via a toml key, probably)
+
+      const focusWrapper = global?.document.querySelectorAll(
+        '[data-redwood-focus]'
+      )
+      if (focusWrapper.length) {
+        // @ts-ignore
+        focusWrapper[0].children[0].focus()
+      }
     }
   }
 
@@ -91,8 +146,6 @@ export class PageLoader extends React.Component<Props> {
       clearTimeout(this.loadingTimeout)
     }
   }
-
-  announcementRef = React.createRef<HTMLDivElement>()
 
   startPageLoadTransition = async (props: Props) => {
     const { spec, delay } = props
@@ -119,56 +172,6 @@ export class PageLoader extends React.Component<Props> {
       slowModuleImport: false,
       params: props.params,
     })
-
-    // scroll
-    //------------------------
-    // scrolls back to the top on `pushState` navigation
-
-    global?.scrollTo(0, 0)
-
-    // announce
-    //------------------------
-    // the order of priority is:
-    // 1. RouteAnnouncement
-    // 2. h1
-    // 3. document.title
-    // 4. location.pathname
-
-    let announcement
-
-    // do we need to watch out for `document` as well? (b/c prerender)
-    const routeAnnouncements = global?.document.querySelectorAll(
-      '[data-redwood-route-announcement]'
-    )
-    const pageHeading = global?.document.querySelector(`h1`)
-
-    if (routeAnnouncements.length) {
-      // @ts-ignore
-      announcement = routeAnnouncements[routeAnnouncements.length - 1].innerText
-    } else if (pageHeading) {
-      announcement = pageHeading.innerText
-    } else if (global?.document.title) {
-      announcement = document.title
-    } else {
-      announcement = `new page at ${global?.location.pathname}`
-    }
-
-    // @ts-ignore
-    this.announcementRef.current.innerText = announcement
-
-    // focus
-    //------------------------
-    // a lot still to do here
-    // 1. check if we've navigated straight to this page (if so, focus shouldn't be managed, per se)
-    // 2. automatically insert skip links (we'll have this configurable via a toml key, probably)
-
-    const focusWrapper = global?.document.querySelectorAll(
-      '[data-redwood-focus]'
-    )
-    if (focusWrapper.length) {
-      // @ts-ignore
-      focusWrapper[0].children[0].focus()
-    }
   }
 
   render() {
