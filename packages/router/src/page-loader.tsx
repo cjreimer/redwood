@@ -169,7 +169,6 @@ const RouteAnnouncer = () => {
 
   React.useEffect(() => {
     if (!firstRender.current) {
-      console.log('first render')
       firstRender.current = true
       return
     }
