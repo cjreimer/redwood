@@ -79,8 +79,6 @@ export class PageLoader extends React.Component<Props> {
     this.startPageLoadTransition(this.props)
   }
 
-  announcementRef = React.createRef<HTMLDivElement>()
-
   componentDidUpdate(prevProps: Props, prevState: State) {
     if (this.propsChanged(prevProps, this.props)) {
       this.clearLoadingTimeout()
@@ -91,21 +89,7 @@ export class PageLoader extends React.Component<Props> {
       // scroll, announce
       //------------------------
       // scrolls back to the top on `pushState` navigation
-      // also seems to scroll back after `popState`,
-      // but the browser sets it again afterward
       global?.scrollTo(0, 0)
-      // @ts-ignore
-      this.announcementRef.current.innerText = getAnnouncement()
-
-      // focus
-      //------------------------
-      // const focusWrapper = global?.document.querySelectorAll(
-      //   '[data-redwood-focus]'
-      // )
-      // if (focusWrapper.length) {
-      //   // @ts-ignore
-      //   focusWrapper[0].children[0].focus()
-      // }
     }
   }
 
@@ -168,22 +152,7 @@ export class PageLoader extends React.Component<Props> {
             value={{ loading: this.state.slowModuleImport }}
           >
             <Page {...this.state.params} />
-            <div
-              style={{
-                position: `absolute`,
-                width: 1,
-                height: 1,
-                padding: 0,
-                overflow: `hidden`,
-                clip: `rect(0, 0, 0, 0)`,
-                whiteSpace: `nowrap`,
-                border: 0,
-              }}
-              role="alert"
-              aria-live="assertive"
-              aria-atomic="true"
-              ref={this.announcementRef}
-            ></div>
+            <RouteAnnouncer />
           </PageLoadingContext.Provider>
         </ParamsContext.Provider>
       )
@@ -193,28 +162,75 @@ export class PageLoader extends React.Component<Props> {
   }
 }
 
-// announce
-//------------------------
-// the order of priority is:
-// 1. RouteAnnouncement
-// 2. h1
-// 3. document.title
-// 4. location.pathname
-const getAnnouncement = (): string => {
-  // do we need to watch out for `document` as well? b/c prerender?
-  const routeAnnouncements = global?.document.querySelectorAll(
-    '[data-redwood-route-announcement]'
-  )
-  const pageHeading = global?.document.querySelector(`h1`)
+const RouteAnnouncer = () => {
+  // screen readers announce the page.
+  const firstRender = React.useRef(false)
+  const announcementRef = React.useRef<HTMLDivElement>()
 
-  if (routeAnnouncements.length) {
+  React.useEffect(() => {
+    if (!firstRender.current) {
+      console.log('first render')
+      firstRender.current = true
+      return
+    }
+
+    // the order of priority is:
+    // 1. RouteAnnouncement
+    // 2. h1
+    // 3. document.title
+    // 4. location.pathname
+
+    let announcement
+
+    const routeAnnouncements = global?.document.querySelectorAll(
+      '[data-redwood-route-announcement]'
+    )
+    const pageHeading = global?.document.querySelector(`h1`)
+
+    if (routeAnnouncements.length) {
+      // @ts-ignore
+      announcement = routeAnnouncements[routeAnnouncements.length - 1].innerText
+    } else if (pageHeading) {
+      // or || textContent
+      announcement = pageHeading.innerText
+    } else if (global?.document.title) {
+      announcement = document.title
+    } else {
+      announcement = `new page at ${global?.location.pathname}`
+    }
+
     // @ts-ignore
-    return routeAnnouncements[routeAnnouncements.length - 1].innerText
-  } else if (pageHeading) {
-    return pageHeading.innerText
-  } else if (global?.document.title) {
-    return document.title
-  } else {
-    return `new page at ${global?.location.pathname}`
-  }
+    announcementRef.current.innerText = announcement
+  })
+
+  return (
+    <div
+      style={{
+        position: `absolute`,
+        top: 0,
+        width: 1,
+        height: 1,
+        padding: 0,
+        overflow: `hidden`,
+        clip: `rect(0, 0, 0, 0)`,
+        whiteSpace: `nowrap`,
+        border: 0,
+      }}
+      role="alert"
+      aria-live="assertive"
+      aria-atomic="true"
+      // @ts-ignore
+      ref={announcementRef}
+    ></div>
+  )
 }
+
+// focus
+//------------------------
+// const focusWrapper = global?.document.querySelectorAll(
+//   '[data-redwood-focus]'
+// )
+// if (focusWrapper.length) {
+//   // @ts-ignore
+//   focusWrapper[0].children[0].focus()
+// }
